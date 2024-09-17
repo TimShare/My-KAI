@@ -1,0 +1,316 @@
+
+    AUI().use('autocomplete-list', 'aui-base', 'aui-io-request', 'autocomplete-filters', 'autocomplete-sources', 'autocomplete-highlighters', function (A) {
+
+        A.all('form.schedule').each(function () {
+            var groupInput = this.one('input[name=_pubStudentSchedule_WAR_publicStudentSchedule10_groupId]');
+            var submit = this.one('button[type=submit]');
+            if(groupInput.val() != '') {
+                submit.set('disabled', false);
+                submit.removeClass('disabled');
+            } else {
+                submit.set('disabled', true);
+                submit.addClass('disabled');
+            }
+        });
+
+        var testData;
+
+        var autocomplete = new A.AutoCompleteList({
+            allowBrowserAutocomplete: 'true',
+            activateFirstItem: 'true',
+            inputNode: '#_pubStudentSchedule_WAR_publicStudentSchedule10_group',
+            resultTextLocator: 'group',
+            render: 'true',
+            minQueryLength:1,
+            resultHighlighter: 'startsWith',
+            resultFilters: ['startsWith'],
+            source:'https://kai.ru/raspisanie?p_p_id=pubStudentSchedule_WAR_publicStudentSchedule10&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=getGroupsURL&p_p_cacheability=cacheLevelPage&p_p_col_id=column-1&p_p_col_count=1&query={query}'
+        }).on('select', function (event) {
+                    var object = event.result.raw;
+                    A.all('form.schedule').each(function () {
+                        var groupInput = this.one('input[name=_pubStudentSchedule_WAR_publicStudentSchedule10_groupId]');
+                        var groupName = this.one('input[name=_pubStudentSchedule_WAR_publicStudentSchedule10_groupName]');
+                        var groupForm = this.one('input[name=_pubStudentSchedule_WAR_publicStudentSchedule10_programForm]');
+                        groupForm.val(object.forma);
+                        groupInput.val(object.id);
+                        groupName.val(object.group);
+                        var submit = this.one('button[type=submit]');
+                        submit.set('disabled', false);
+                        submit.removeClass('disabled');
+                    });
+                });
+        A.one('#_pubStudentSchedule_WAR_publicStudentSchedule10_group').on('keypress', function (e) {
+            //console.log(e.keyCode)
+            if(e.keyCode != 13
+            ) {
+                A.all('form.schedule').each(function () {
+                    var submit = this.one('button[type=submit]');
+                    submit.set('disabled', true);
+                });
+                A.one("#schedule").empty();
+            }
+        });
+
+        A.one('#_pubStudentSchedule_WAR_publicStudentSchedule10_schedule')
+                .on('click', function (e) {
+                    e.preventDefault();
+                    var groupId = e.target.get('parentNode').one('input[name=_pubStudentSchedule_WAR_publicStudentSchedule10_groupId]').val();
+                    var programForm = e.target.get('parentNode').one('input[name=_pubStudentSchedule_WAR_publicStudentSchedule10_programForm]').val();
+                    addSchedule(groupId, programForm);
+                });
+
+        A.one('#_pubStudentSchedule_WAR_publicStudentSchedule10_examSchedule')
+                .on('click', function (e) {
+                    e.preventDefault();
+                    var groupId = e.target.get('parentNode').one('input[name=_pubStudentSchedule_WAR_publicStudentSchedule10_groupId]').val();
+                    addExamSchedule(groupId);
+                });
+
+
+
+        var weekDays = {
+            '1':'Понедельник',
+            '2':'Вторник',
+            '3':'Среда',
+            '4':'Четверг',
+            '5':'Пятница',
+            '6':'Суббота',
+            '7':'Воскресенье'
+        };
+
+        var addSchedule = function (groupId, programForm) {
+
+            loading();
+
+            A.io.request('https://kai.ru/raspisanie?p_p_id=pubStudentSchedule_WAR_publicStudentSchedule10&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=schedule&p_p_cacheability=cacheLevelPage&p_p_col_id=column-1&p_p_col_count=1',
+                    {
+                        method: 'POST',
+                        dataType: 'json',
+                        data: {
+                            groupId: groupId,
+                            programForm : programForm
+                        },
+                        on: {
+                            success: function () {
+                                var data = this.get('responseData');
+                                //console.log(data)
+                                var schedule = A.one("#schedule").empty();
+                                if (data != null && Object.keys(data).length) {
+                                	if (programForm != "zaochnik"){
+                                    for (var day = 1; day <= 6; day++) {
+
+                                        var dayText = A.Node.create('<h4/>');
+                                        schedule.append(dayText);
+                                        dayText.text(weekDays[day]);
+
+                                        var row = data[day];
+                                        if(row !== undefined) {
+                                            var table = A.Node.create('<table class="table table-bordered table-hover table-striped schedule"/>');
+                                            schedule.append(table);
+                                            var thead = A.Node.create('<thead class="table-columns"/>');
+                                            table.append(thead);
+                                            var tr = A.Node.create('<tr/>');
+                                            thead.append(tr);
+                                            tr.append(A.Node.create('<th class="span1" >Время</th>'));
+                                            tr.append(A.Node.create('<th class="span1" >Дата</th>'));
+                                            tr.append(A.Node.create('<th class="span3" >Дисциплина</th>'));
+                                            tr.append(A.Node.create('<th class="span1" >Вид занятия</th>'));
+                                            tr.append(A.Node.create('<th class="span1" >Аудитория</th>'));
+                                            tr.append(A.Node.create('<th class="span1" >Здание</th>'));
+                                            tr.append(A.Node.create('<th class="span2" >Преподаватель</th>'));
+                                            tr.append(A.Node.create('<th class="span3" >Кафедра</th>'));
+                                            var tbody = A.Node.create('<tbody/>');
+                                            table.append(tbody);
+                                            for (var i = 0; i < row.length; i++) {
+                                                var tdBackground = '';
+                                                var trTitle = "";
+                                                if (row[i].potok == 1) {
+                                                    tdBackground = 'style="background-color:#e4f7aa;"';
+                                                    trTitle = 'title="Лекция с применением дистанционных образовательных технологий"';
+                                                }
+                                                tr = A.Node.create('<tr '+trTitle+'/>');
+                                                tbody.append(tr);
+
+                                                tr.append(A.Node.create('<td '+tdBackground+'/>').text(row[i].dayTime) );
+                                                tr.append(A.Node.create('<td '+tdBackground+'/>').text(row[i].dayDate));
+                                                /*var a = A.Node.create('<a target="_blank"/>')
+                                                        .setAttribute('href', '/web/guest/infoclick/-/info/discipl?id=' + row[i].disciplNum + '&name=' + row[i].disciplNameEnc)
+                                                        .text(row[i].disciplName);
+                                                tr.append(A.Node.create('<td/>').append(a));*/
+                                                tr.append(A.Node.create('<td '+tdBackground+'/>').text(row[i].disciplName));
+                                                tr.append(A.Node.create('<td '+tdBackground+'/>').text(row[i].disciplType));
+                                                tr.append(A.Node.create('<td '+tdBackground+'/>').text(row[i].audNum));
+                                                tr.append(A.Node.create('<td '+tdBackground+'/>').text(row[i].buildNum));
+                                                /*if (row[i].prepodLogin != undefined && row[i].prepodLogin != '') {
+                                                    a = A.Node.create('<a target="_blank"/>')
+                                                            .setAttribute('href', '/web/guest/infoclick/-/info/fio?login=' + row[i].prepodLogin + '&name=' + row[i].prepodNameEnc)
+                                                            .text(row[i].prepodName);
+                                                    tr.append(A.Node.create('<td/>').append(a));
+                                                } else {
+                                                    tr.append(A.Node.create('<td/>').text(row[i].prepodName));
+                                                }*/
+                                                tr.append(A.Node.create('<td '+tdBackground+'/>').text(row[i].prepodName));
+                                                /*if(row[i].orgUnitId != null) {
+                                                    a = A.Node.create('<a target="_blank"/>')
+                                                            .setAttribute('href', '/web/guest/infoclick/-/info/orgunit?id=' + row[i].orgUnitId)
+                                                            .text(row[i].orgUnitName);
+                                                    tr.append(A.Node.create('<td/>').append(a));
+                                                } else {
+                                                    tr.append(A.Node.create('<td/>').text(row[i].orgUnitName));
+                                                }*/
+                                                tr.append(A.Node.create('<td '+tdBackground+'/>').text(row[i].orgUnitName));
+                                            }
+                                        } else {
+                                            schedule.append(A.Node.create('<div class="alert alert-info"/>')
+                                                    .text('Занятий нет'));
+                                        }
+                                    }
+                                	} else {
+
+                                        var table = A.Node.create('<table class="table table-bordered table-hover table-striped schedule"/>');
+                                        schedule.append(table);
+                                        var thead = A.Node.create('<thead class="table-columns"/>');
+                                        table.append(thead);
+                                        var tr = A.Node.create('<tr/>');
+                                        thead.append(tr);
+                                        tr.append(A.Node.create('<th class="span1" >Дата</th>'));
+                                        tr.append(A.Node.create('<th class="span1" >Время</th>'));
+                                        tr.append(A.Node.create('<th class="span3" >Дисциплина</th>'));
+                                        tr.append(A.Node.create('<th class="span1" >Вид занятия</th>'));
+                                        tr.append(A.Node.create('<th class="span1" >Аудитория</th>'));
+                                        tr.append(A.Node.create('<th class="span1" >Здание</th>'));
+                                        tr.append(A.Node.create('<th class="span2" >Преподаватель</th>'));
+                                        tr.append(A.Node.create('<th class="span3" >Кафедра</th>'));
+                                        var tbody = A.Node.create('<tbody/>');
+                                        table.append(tbody);
+
+                                        /*for (var day = 1; day <= 6; day++) {
+
+                                            var dayText = A.Node.create('<h4/>');
+                                            schedule.append(dayText);
+                                            dayText.text(weekDays[day]);
+
+                                        var row = data[day];
+                                        if(row !== undefined) {*/
+                                            for (var i = 0; i < data.length; i++) {
+                                                var shed = data[i];
+                                                tr = A.Node.create('<tr/>');
+                                                tbody.append(tr);
+                                                tr.append(A.Node.create('<td/>').text(shed.dayDate));
+                                                tr.append(A.Node.create('<td/>').text(shed.dayTime));
+                                                /*var a = A.Node.create('<a target="_blank"/>')
+                                                        .setAttribute('href', '/web/guest/infoclick/-/info/discipl?id=' + shed.disciplNum + '&name=' + shed.disciplNameEnc)
+                                                        .text(shed.disciplName);
+                                                tr.append(A.Node.create('<td/>').append(a));
+                                                */
+                                                tr.append(A.Node.create('<td/>').text(shed.disciplName));
+                                                tr.append(A.Node.create('<td/>').text(shed.disciplType));
+                                                tr.append(A.Node.create('<td/>').text(shed.audNum));
+                                                tr.append(A.Node.create('<td/>').text(shed.buildNum));
+                                                /*if (shed.prepodLogin != undefined && shed.prepodLogin != '') {
+                                                    a = A.Node.create('<a target="_blank"/>')
+                                                            .setAttribute('href', '/web/guest/infoclick/-/info/fio?login=' + shed.prepodLogin + '&name=' + shed.prepodNameEnc)
+                                                            .text(shed.prepodName);
+                                                	tr.append(A.Node.create('<td/>').append(a));
+                                                } else {
+                                                    tr.append(A.Node.create('<td/>').text(shed.prepodName));
+                                                }*/
+                                                    tr.append(A.Node.create('<td/>').text(shed.prepodName));
+                                                /*if(data.orgUnitId != null) {
+                                                    a = A.Node.create('<a target="_blank"/>')
+                                                            .setAttribute('href', '/web/guest/infoclick/-/info/orgunit?id=' + shed.orgUnitId)
+                                                            .text(shed.orgUnitName);
+                                                    tr.append(A.Node.create('<td/>').append(a));
+                                                } else {
+                                                    tr.append(A.Node.create('<td/>').text(shed.orgUnitName));
+                                                }*/
+                                                tr.append(A.Node.create('<td/>').text(shed.orgUnitName));
+                                            }
+                                        /*} else {
+                                            schedule.append(A.Node.create('<div class="alert alert-info"/>')
+                                                    .text('Занятий нет'));
+                                        }
+                                	}*/
+                                	}
+                                } else {
+                                    schedule.append(A.Node.create('<div class="alert alert-info"/>')
+                                            .text('Занятий нет'));
+                                }
+                            }
+                        }
+                    }
+            )
+        };
+
+
+
+        var addExamSchedule = function (groupId) {
+
+            loading();
+
+            A.io.request('https://kai.ru/raspisanie?p_p_id=pubStudentSchedule_WAR_publicStudentSchedule10&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=examSchedule&p_p_cacheability=cacheLevelPage&p_p_col_id=column-1&p_p_col_count=1',
+                    {
+                        method: 'POST',
+                        dataType: 'json',
+                        data: {
+                            groupId: groupId
+                        },
+                        on: {
+                            success: function () {
+                                var data = this.get('responseData');
+                                //console.log(data)
+                                var schedule = A.one("#schedule").empty();
+                                if (data != null && data.length) {
+
+                                    var table = A.Node.create('<table class="table table-bordered table-hover table-striped schedule"/>');
+                                    schedule.append(table);
+                                    var thead = A.Node.create('<thead class="table-columns"/>');
+                                    table.append(thead);
+                                    var tr = A.Node.create('<tr/>');
+                                    thead.append(tr);
+                                    tr.append(A.Node.create('<th class="span1" >Дата</th>'));
+                                    tr.append(A.Node.create('<th class="span1" >Время</th>'));
+                                    tr.append(A.Node.create('<th class="span3" >Дисциплина</th>'));
+                                    tr.append(A.Node.create('<th class="span1" >Аудитория</th>'));
+                                    tr.append(A.Node.create('<th class="span2" >Здание</th>'));
+                                    tr.append(A.Node.create('<th class="span2" >Преподаватель</th>'));
+
+                                    var tbody = A.Node.create('<tbody/>');
+                                    table.append(tbody);
+                                    for (var i = 0; i < data.length; i++) {
+                                        var a;
+                                        var exam = data[i];
+                                        tr = A.Node.create('<tr/>');
+                                        tbody.append(tr);
+                                        tr.append(A.Node.create('<td/>').text(exam.examDate));
+                                        tr.append(A.Node.create('<td/>').text(exam.examTime));
+                                        /*a = A.Node.create('<a target="_blank"/>')
+                                                .setAttribute('href', '/web/guest/infoclick/-/info/discipl?id=' + exam.disciplNum + '&name=' + exam.disciplNameEnc)
+                                                .text(exam.disciplName);
+                                        tr.append(A.Node.create('<td/>').append(a));*/
+
+                                        tr.append(A.Node.create('<td/>').text(exam.disciplName));
+                                        tr.append(A.Node.create('<td/>').text(exam.audNum));
+                                        tr.append(A.Node.create('<td/>').text(exam.buildNum));
+                                        /*a = A.Node.create('<a target="_blank"/>')
+                                                .setAttribute('href', '/web/guest/infoclick/-/info/fio?login=' + exam.prepodLogin + '&name=' + exam.prepodNameEnc)
+                                                .text(exam.prepodName);
+                                        tr.append(A.Node.create('<td/>').append(a));*/
+                                        tr.append(A.Node.create('<td/>').text(exam.prepodName));
+                                    }
+                                } else {
+                                    schedule.append(A.Node.create('<div class="alert alert-info"/>')
+                                            .text('Экзаменов нет'));
+                                }
+                            }
+                        }
+                    }
+            )
+        };
+
+        var loading = function() {
+            var loading = A.Node.create('<div class="loading-animation"/>');
+            var schedule = A.one("#schedule").empty();
+            schedule.append(loading);
+        };
+    });
